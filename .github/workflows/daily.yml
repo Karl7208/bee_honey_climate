@@ -1,0 +1,27 @@
+name: daily-update
+on:
+  schedule:
+    - cron: '30 20 * * *'   # 매일 UTC 20:30 = 한국시간 새벽 5:30
+  workflow_dispatch:         # 수동 실행 버튼도 활성화
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: run collector
+        env:
+          KMA_KEY: ${{ secrets.KMA_KEY }}
+        run: python fetch_kma.py
+      - name: commit data
+        run: |
+          git config user.name "beeclimate-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add docs/data.json
+          git diff --cached --quiet || git commit -m "data update $(date -u +%F)"
+          git push
