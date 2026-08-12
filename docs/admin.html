@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>아까시 작황 관제 — 전국 현황</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap');
+:root{--honey:#E8A317;--honey-deep:#C77B0E;--comb:#F6E6B4;--ink:#2B2118;--paper:#FBF6EA;--card:#FFF;--good:#3C8A5A;--warn:#D98324;--bad:#C0392B;--line:#E5D9BC;--muted:#8A7A5C}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--paper);color:var(--ink);line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
+header{padding:24px 0 14px;border-bottom:3px solid var(--ink);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+header h1{font-family:'Black Han Sans';font-size:clamp(22px,4vw,32px)}
+header h1 em{font-style:normal;color:var(--honey-deep)}
+header .meta{font-size:12px;color:var(--muted)}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:16px}
+.sbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.sbox .lab{font-size:11px;color:var(--muted);font-weight:700}
+.sbox .v{font-family:'Black Han Sans';font-size:26px;margin-top:2px}
+.cols{display:grid;grid-template-columns:1fr 1.2fr;gap:16px;margin-top:16px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.panel h2{font-size:13px;font-weight:700;color:var(--muted);padding:13px 16px 0}
+#map{height:430px;margin-top:10px;border-top:1px solid var(--line)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px}
+.filters button{padding:6px 12px;border:1px solid var(--line);border-radius:16px;background:#fff;font-family:inherit;font-size:12.5px;cursor:pointer}
+.filters button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.filters input{flex:1;min-width:120px;padding:6px 12px;border:1px solid var(--line);border-radius:16px;font-family:inherit;font-size:12.5px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{position:sticky;top:0;background:var(--comb);text-align:left;padding:8px 10px;cursor:pointer;font-size:12px;white-space:nowrap}
+th:hover{background:#EFDCA0}
+td{padding:7px 10px;border-top:1px solid var(--line);white-space:nowrap}
+tr:hover td{background:var(--paper)}
+.tbwrap{max-height:430px;overflow:auto;margin-top:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+.gb{font-weight:700}
+footer{margin-top:28px;padding-top:12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);font-family:'Gowun Dodum'}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>아까시 작황 <em>전국 관제</em></h1>
+  <div class="meta" id="meta">불러오는 중…</div>
+</header>
+
+<div class="sum" id="sum"></div>
+
+<div class="cols">
+  <div class="panel"><h2>전국 분포</h2><div id="map"></div></div>
+  <div class="panel">
+    <h2>지점 목록 <span style="font-weight:400">(열 제목 클릭 = 정렬)</span></h2>
+    <div class="filters" id="filters">
+      <button class="on" data-f="ALL">전체</button>
+      <button data-f="GREEN">좋음</button>
+      <button data-f="YELLOW">보통</button>
+      <button data-f="RED">주의</button>
+      <button data-f="PRE">개화전/미달</button>
+      <input id="q" placeholder="지점 검색">
+    </div>
+    <div class="tbwrap"><table>
+      <thead><tr>
+        <th data-k="name">지점</th><th data-k="bloom_doy">개화일</th>
+        <th data-k="idx">여건지수</th><th data-k="hmwi">수분등급</th>
+        <th data-k="traffic">신호</th><th data-k="obs_days_used">관측일</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table></div>
+  </div>
+</div>
+
+<footer>연구 시제품 · 기상자료: 기상청 API허브(ASOS) · 여건지수 = HHWI/100 (0~1 상대지표) · 개화전/미달 지점은 적산온도 미도달</footer>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const RAW='https://raw.githubusercontent.com/Karl7208/bee_honey_climate/main/docs/data.json';
+const TCOL={GREEN:'#3C8A5A',YELLOW:'#D98324',RED:'#C0392B'};
+const TLAB={GREEN:'좋음',YELLOW:'보통',RED:'주의'};
+const GCOL={A:'#3C8A5A',B:'#6FB07F',C:'#E8A317',D:'#D98324',E:'#C0392B'};
+let ROWS=[],FIL='ALL',SORT={k:'idx',dir:-1},map,layer;
+
+async function load(){
+  let d;
+  try{let r=await fetch('data.json',{cache:'no-store'});if(!r.ok)throw 0;d=await r.json();}
+  catch(e){try{d=await(await fetch(RAW,{cache:'no-store'})).json();}
+    catch(e2){document.getElementById('meta').textContent='데이터 로드 실패';return;}}
+  for(const[stn,v]of Object.entries(d.stations||{})){
+    ROWS.push({stn,name:v.name,lat:v.lat,lon:v.lon,status:v.status,
+      bloom:v.bloom_date||null,bloom_doy:v.bloom_doy||999,
+      idx:v.status==='ok'?v.hhwi/100:null,hmwi:v.hmwi??null,
+      grade:v.grade||'-',traffic:v.traffic||'PRE',
+      obs_days_used:v.obs_days_used??0});
+  }
+  document.getElementById('meta').textContent=
+    `${d.year}년 · ASOS ${ROWS.length}지점 · 갱신 ${d.generated.slice(0,16).replace('T',' ')}`;
+  summary();initMap();render();
+  document.querySelectorAll('#filters button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#filters button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');FIL=b.dataset.f;render();});
+  document.getElementById('q').oninput=render;
+  document.querySelectorAll('th').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;SORT.dir=SORT.k===k?-SORT.dir:-1;SORT.k=k;render();});
+}
+function summary(){
+  const ok=ROWS.filter(r=>r.status==='ok');
+  const c=t=>ok.filter(r=>r.traffic===t).length;
+  const mean=ok.reduce((s,r)=>s+r.idx,0)/ok.length;
+  const eg=ok.filter(r=>['D','E'].includes(r.grade)).length;
+  document.getElementById('sum').innerHTML=[
+    ['진단 지점',`${ok.length}<span style="font-size:14px;color:var(--muted)">/${ROWS.length}</span>`],
+    ['평균 여건지수',mean.toFixed(2)],
+    ['좋음',`<span style="color:${TCOL.GREEN}">${c('GREEN')}</span>`],
+    ['보통·주의',`<span style="color:${TCOL.YELLOW}">${c('YELLOW')}</span> · <span style="color:${TCOL.RED}">${c('RED')}</span>`],
+    ['수분 D·E 지점',`<span style="color:${TCOL.RED}">${eg}</span>`],
+  ].map(([l,v])=>`<div class="sbox"><div class="lab">${l}</div><div class="v">${v}</div></div>`).join('');
+}
+function initMap(){
+  map=L.map('map').setView([36.3,127.9],7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    {attribution:'© OpenStreetMap'}).addTo(map);
+  layer=L.layerGroup().addTo(map);
+}
+function pass(r){
+  const q=document.getElementById('q').value.trim();
+  if(q&&!r.name.includes(q))return false;
+  if(FIL==='ALL')return true;
+  if(FIL==='PRE')return r.status!=='ok';
+  return r.traffic===FIL;
+}
+function render(){
+  const rows=ROWS.filter(pass).sort((a,b)=>{
+    const k=SORT.k,x=a[k]??-1,y=b[k]??-1;
+    return (x>y?1:x<y?-1:0)*SORT.dir*(k==='name'?-1:1);});
+  document.getElementById('tb').innerHTML=rows.map(r=>r.status==='ok'?`
+    <tr><td>${r.name}</td><td>${r.bloom.slice(5).replace('-','/')}</td>
+    <td><b>${r.idx.toFixed(2)}</b></td>
+    <td class="gb" style="color:${GCOL[r.grade]}">${r.grade}</td>
+    <td><span class="dot" style="background:${TCOL[r.traffic]}"></span>${TLAB[r.traffic]}</td>
+    <td>${r.obs_days_used}</td></tr>`:`
+    <tr style="color:var(--muted)"><td>${r.name}</td><td>—</td><td>—</td><td>—</td>
+    <td>개화전</td><td>${r.obs_days_used}</td></tr>`).join('');
+  layer.clearLayers();
+  rows.forEach(r=>{if(r.lat==null)return;
+    L.circleMarker([r.lat,r.lon],{radius:6,color:'#fff',weight:1.2,
+      fillColor:r.status==='ok'?TCOL[r.traffic]:'#AAA',fillOpacity:.9})
+      .bindTooltip(`${r.name}${r.idx!=null?' '+r.idx.toFixed(2):''}`).addTo(layer);});
+}
+load();
+</script>
+</body>
+</html>
