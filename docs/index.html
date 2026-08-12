@@ -3,103 +3,76 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>아까시 개화·작황 예보</title>
+<title>아까시 작황 관제 — 전국 현황</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap');
 :root{--honey:#E8A317;--honey-deep:#C77B0E;--comb:#F6E6B4;--ink:#2B2118;--paper:#FBF6EA;--card:#FFF;--good:#3C8A5A;--warn:#D98324;--bad:#C0392B;--line:#E5D9BC;--muted:#8A7A5C}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--paper);color:var(--ink);line-height:1.55}
-.wrap{max-width:980px;margin:0 auto;padding:0 16px 70px}
-header{padding:28px 0 16px;border-bottom:3px solid var(--ink);position:relative;overflow:hidden}
-header .hex{position:absolute;right:-15px;top:-8px;font-size:110px;color:var(--comb);z-index:0}
-header h1{font-family:'Black Han Sans';font-size:clamp(26px,5.5vw,40px);letter-spacing:-1px;z-index:1;position:relative}
+body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--paper);color:var(--ink);line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
+header{padding:24px 0 14px;border-bottom:3px solid var(--ink);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+header h1{font-family:'Black Han Sans';font-size:clamp(22px,4vw,32px)}
 header h1 em{font-style:normal;color:var(--honey-deep)}
-header p{font-family:'Gowun Dodum';color:var(--muted);margin-top:4px;position:relative;z-index:1;font-size:14px}
-.meta{font-size:12px;color:var(--muted);margin-top:6px;position:relative;z-index:1}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:20px}
-@media(max-width:760px){.grid{grid-template-columns:1fr}}
+header .meta{font-size:12px;color:var(--muted)}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:16px}
+.sbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.sbox .lab{font-size:11px;color:var(--muted);font-weight:700}
+.sbox .v{font-family:'Black Han Sans';font-size:26px;margin-top:2px}
+.cols{display:grid;grid-template-columns:1fr 1.2fr;gap:16px;margin-top:16px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.panel h2{font-size:13px;font-weight:700;color:var(--muted);padding:14px 18px 0}
-#map{height:380px;width:100%;margin-top:10px;border-top:1px solid var(--line)}
-.locate{margin:14px 18px;width:calc(100% - 36px);padding:13px;border:none;border-radius:10px;background:var(--ink);color:var(--paper);font-family:'IBM Plex Sans KR';font-weight:700;font-size:15px;cursor:pointer}
-.locate:hover{background:var(--honey-deep)}
-.empty{padding:44px 24px;text-align:center;color:var(--muted);font-family:'Gowun Dodum'}
-.empty .big{font-size:40px;margin-bottom:8px}
-.diag{padding:18px}
-.locrow{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid var(--line)}
-.locrow .pin{font-size:24px}
-.locrow .st{font-size:12px;color:var(--honey-deep);font-weight:700}
-.locrow .nm{font-family:'Gowun Dodum';font-size:16px}
-.bloom{background:var(--comb);border-radius:12px;padding:14px;margin-top:13px;text-align:center}
-.bloom .lab{font-size:12px;color:var(--honey-deep);font-weight:700}
-.bloom .date{font-family:'Black Han Sans';font-size:30px;margin-top:2px}
-.idxbox{margin-top:13px;background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:14px}
-.idxbox .lab{font-size:12px;color:var(--muted);font-weight:700}
-.idxrow{display:flex;align-items:baseline;gap:8px;margin-top:4px}
-.idxrow .val{font-family:'Black Han Sans';font-size:34px}
-.idxrow .band{font-weight:700;font-size:14px}
-.bar{height:10px;border-radius:5px;background:#EEE4C8;margin-top:8px;overflow:hidden}
-.bar i{display:block;height:100%;border-radius:5px}
-.advice{margin-top:12px;background:#FFF9E8;border:1px solid var(--comb);border-left:4px solid var(--honey-deep);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.65}
-.advice .t{font-size:11.5px;font-weight:700;color:var(--honey-deep);margin-bottom:3px}
-.twin{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-.gbox{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
-.gbox .lab{font-size:11.5px;color:var(--muted);font-weight:700}
-.gbox .v{font-family:'Black Han Sans';font-size:26px;margin-top:2px}
-.slots{padding:14px 18px 18px}
-.slotadd{display:flex;gap:8px;margin-bottom:12px}
-.slotadd select{flex:1;padding:10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:14px;background:#fff}
-.slotadd button{padding:10px 16px;border:none;border-radius:9px;background:var(--honey-deep);color:#fff;font-weight:700;cursor:pointer;font-family:inherit}
-.scard{border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin-bottom:9px;display:flex;align-items:center;gap:11px;background:var(--paper)}
-.scard .dot{width:13px;height:13px;border-radius:50%;flex:none}
-.scard .n{font-weight:700;min-width:56px}
-.scard .d{font-size:13px;color:var(--muted);flex:1}
-.scard .g{font-family:'Black Han Sans';font-size:19px}
-.scard .x{border:none;background:none;color:var(--muted);cursor:pointer;font-size:16px}
-footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);font-family:'Gowun Dodum';line-height:1.7}
+.panel h2{font-size:13px;font-weight:700;color:var(--muted);padding:13px 16px 0}
+#map{height:430px;margin-top:10px;border-top:1px solid var(--line)}
+.filters{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px}
+.filters button{padding:6px 12px;border:1px solid var(--line);border-radius:16px;background:#fff;font-family:inherit;font-size:12.5px;cursor:pointer}
+.filters button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.filters input{flex:1;min-width:120px;padding:6px 12px;border:1px solid var(--line);border-radius:16px;font-family:inherit;font-size:12.5px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{position:sticky;top:0;background:var(--comb);text-align:left;padding:8px 10px;cursor:pointer;font-size:12px;white-space:nowrap}
+th:hover{background:#EFDCA0}
+td{padding:7px 10px;border-top:1px solid var(--line);white-space:nowrap}
+tr:hover td{background:var(--paper)}
+.tbwrap{max-height:430px;overflow:auto;margin-top:8px}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+.gb{font-weight:700}
+footer{margin-top:28px;padding-top:12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);font-family:'Gowun Dodum'}
 </style>
 </head>
 <body>
 <div class="wrap">
 <header>
-  <div class="hex">⬡</div>
-  <h1>아까시 <em>개화·작황</em> 예보</h1>
-  <p>기상 기반 개화 시기와 꿀 생산 여건을 지점별로 진단합니다</p>
-  <div class="meta" id="meta">데이터 불러오는 중…</div>
+  <h1>아까시 작황 <em>전국 관제</em></h1>
+  <div class="meta" id="meta">불러오는 중…</div>
+  <a href="farmer.html" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--paper);background:var(--honey-deep);padding:8px 14px;border-radius:9px;text-decoration:none">🐝 농가용 진단 화면 →</a>
 </header>
 
-<div class="grid">
+<div class="sum" id="sum"></div>
+
+<div class="cols">
+  <div class="panel"><h2>전국 분포</h2><div id="map"></div></div>
   <div class="panel">
-    <h2>지도에서 보기</h2>
-    <div id="map"></div>
-    <button class="locate" onclick="locateMe()">📍 내 위치 진단</button>
-  </div>
-
-  <div>
-    <div class="panel">
-      <h2>지점 진단</h2>
-      <div class="empty" id="emptyDiag"><div class="big">🐝</div>지도의 지점을 누르거나<br>내 위치 진단을 실행하세요</div>
-      <div class="diag" id="diag" style="display:none"></div>
+    <h2>지점 목록 <span style="font-weight:400">(열 제목 클릭 = 정렬)</span></h2>
+    <div class="filters" id="filters">
+      <button class="on" data-f="ALL">전체</button>
+      <button data-f="GREEN">좋음</button>
+      <button data-f="YELLOW">보통</button>
+      <button data-f="RED">주의</button>
+      <button data-f="PRE">개화전/미달</button>
+      <input id="q" placeholder="지점 검색">
     </div>
-
-    <div class="panel" style="margin-top:18px">
-      <h2>이동양봉 비교 (최대 4곳)</h2>
-      <div class="slots">
-        <div class="slotadd">
-          <select id="slotSel"><option value="">지점 선택…</option></select>
-          <button onclick="addSlot()">추가</button>
-        </div>
-        <div id="slotList"></div>
-      </div>
-    </div>
+    <div class="tbwrap"><table>
+      <thead><tr>
+        <th data-k="name">지점</th><th data-k="bloom_doy">개화일</th>
+        <th data-k="idx">여건지수</th><th data-k="hmwi">수분등급</th>
+        <th data-k="traffic">신호</th><th data-k="obs_days_used">관측일</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table></div>
   </div>
 </div>
 
-<footer>
-  연구 기반: 농촌진흥청 양봉 관련 게재 연구(HHWI·HMWI 지수 체계) · 기상자료: 기상청 API허브(ASOS)<br>
-  본 서비스는 연구 시제품이며 기관의 공식 서비스가 아닙니다. 생산 여건 지수(0~1)는 상대적 판단 보조 지표로, 실제 작황·품질을 보증하지 않습니다.
-</footer>
+<footer>연구 시제품 · 기상자료: 기상청 API허브(ASOS) · 여건지수 = HHWI/100 (0~1 상대지표) · 개화전/미달 지점은 적산온도 미도달</footer>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -107,131 +80,74 @@ footer{margin-top:34px;padding-top:14px;border-top:1px solid var(--line);font-si
 const RAW='https://raw.githubusercontent.com/Karl7208/bee_honey_climate/main/docs/data.json';
 const TCOL={GREEN:'#3C8A5A',YELLOW:'#D98324',RED:'#C0392B'};
 const TLAB={GREEN:'좋음',YELLOW:'보통',RED:'주의'};
-const GLAB={A:'프리미엄',B:'우수',C:'양호',D:'보통',E:'주의'};
 const GCOL={A:'#3C8A5A',B:'#6FB07F',C:'#E8A317',D:'#D98324',E:'#C0392B'};
-let DATA=null, POINTS={}, map, marks={};
+let ROWS=[],FIL='ALL',SORT={k:'idx',dir:-1},map,layer;
 
 async function load(){
-  try{
-    let r=await fetch('data.json',{cache:'no-store'});
-    if(!r.ok) throw 0;
-    DATA=await r.json();
-  }catch(e){
-    try{DATA=await (await fetch(RAW,{cache:'no-store'})).json();}
-    catch(e2){document.getElementById('meta').textContent='데이터를 불러오지 못했습니다. 네트워크를 확인하세요.';return;}
+  let d;
+  try{let r=await fetch('data.json',{cache:'no-store'});if(!r.ok)throw 0;d=await r.json();}
+  catch(e){try{d=await(await fetch(RAW,{cache:'no-store'})).json();}
+    catch(e2){document.getElementById('meta').textContent='데이터 로드 실패';return;}}
+  for(const[stn,v]of Object.entries(d.stations||{})){
+    ROWS.push({stn,name:v.name,lat:v.lat,lon:v.lon,status:v.status,
+      bloom:v.bloom_date||null,bloom_doy:v.bloom_doy||999,
+      idx:v.status==='ok'?v.hhwi/100:null,hmwi:v.hmwi??null,
+      grade:v.grade||'-',traffic:v.traffic||'PRE',
+      obs_days_used:v.obs_days_used??0});
   }
-  for(const [k,v] of Object.entries(DATA.sites||{})) if(v.status==='ok') POINTS['★'+k]=v;
-  for(const [k,v] of Object.entries(DATA.stations||{})) if(v.status==='ok') POINTS[v.name]=v;
-  const n=Object.keys(POINTS).length;
   document.getElementById('meta').textContent=
-    `${DATA.year}년 시즌 · ${n}개 지점 · 갱신 ${DATA.generated.slice(0,10)}`;
-  initMap(); initSlots(); fromURL();
+    `${d.year}년 · ASOS ${ROWS.length}지점 · 갱신 ${d.generated.slice(0,16).replace('T',' ')}`;
+  summary();initMap();render();
+  document.querySelectorAll('#filters button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#filters button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');FIL=b.dataset.f;render();});
+  document.getElementById('q').oninput=render;
+  document.querySelectorAll('th').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;SORT.dir=SORT.k===k?-SORT.dir:-1;SORT.k=k;render();});
 }
-function idxOf(v){return Math.round(v.hhwi)/100;}
+function summary(){
+  const ok=ROWS.filter(r=>r.status==='ok');
+  const c=t=>ok.filter(r=>r.traffic===t).length;
+  const mean=ok.reduce((s,r)=>s+r.idx,0)/ok.length;
+  const eg=ok.filter(r=>['D','E'].includes(r.grade)).length;
+  document.getElementById('sum').innerHTML=[
+    ['진단 지점',`${ok.length}<span style="font-size:14px;color:var(--muted)">/${ROWS.length}</span>`],
+    ['평균 여건지수',mean.toFixed(2)],
+    ['좋음',`<span style="color:${TCOL.GREEN}">${c('GREEN')}</span>`],
+    ['보통·주의',`<span style="color:${TCOL.YELLOW}">${c('YELLOW')}</span> · <span style="color:${TCOL.RED}">${c('RED')}</span>`],
+    ['수분 D·E 지점',`<span style="color:${TCOL.RED}">${eg}</span>`],
+  ].map(([l,v])=>`<div class="sbox"><div class="lab">${l}</div><div class="v">${v}</div></div>`).join('');
+}
 function initMap(){
-  map=L.map('map').setView([36.3,127.8],7);
+  map=L.map('map').setView([36.3,127.9],7);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     {attribution:'© OpenStreetMap'}).addTo(map);
-  for(const [name,v] of Object.entries(POINTS)){
-    if(v.lat==null) continue;
-    const m=L.circleMarker([v.lat,v.lon],{radius:7,color:'#fff',weight:1.5,
-      fillColor:TCOL[v.traffic]||'#999',fillOpacity:.92}).addTo(map);
-    m.on('click',()=>showDiag(name));
-    m.bindTooltip(`${name} ${idxOf(v).toFixed(2)}`);
-    marks[name]=m;
-  }
+  layer=L.layerGroup().addTo(map);
 }
-function showDiag(name){
-  const v=POINTS[name]; if(!v)return;
-  document.getElementById('emptyDiag').style.display='none';
-  const d=document.getElementById('diag'); d.style.display='block';
-  const idx=idxOf(v);
-  const bd=new Date(v.bloom_date+'T00:00:00');
-  const bloomTxt=`${bd.getMonth()+1}월 ${bd.getDate()}일`;
-  d.innerHTML=`
-    <div class="locrow"><div class="pin">📍</div><div>
-      <div class="st">진단 지점${v.asos_km!=null?` · 관측 ${v.asos_km}km`:''}</div>
-      <div class="nm">${name.replace('★','')}</div></div></div>
-    <div class="bloom"><div class="lab">예상 개화일</div>
-      <div class="date">${bloomTxt}</div></div>
-    <div class="idxbox"><div class="lab">꿀 생산 여건 지수 (0~1)</div>
-      <div class="idxrow"><div class="val">${idx.toFixed(2)}</div>
-        <div class="band" style="color:${TCOL[v.traffic]}">${TLAB[v.traffic]||''}</div></div>
-      <div class="bar"><i style="width:${idx*100}%;background:${TCOL[v.traffic]}"></i></div></div>
-    <div class="twin">
-      <div class="gbox"><div class="lab">품질 등급</div>
-        <div class="v" style="color:${GCOL[v.grade]}">${v.grade}</div>
-        <div style="font-size:12px;color:${GCOL[v.grade]};font-weight:700">${GLAB[v.grade]||''}</div></div>
-      <div class="gbox"><div class="lab">관측 반영일</div>
-        <div class="v">${v.obs_days_used??'-'}</div>
-        <div style="font-size:12px;color:var(--muted)">일</div></div>
-    </div>
-    ${(()=>{const a=advCopy(v);return `<div class="advice"><div class="t">${a.t}</div>${a.m}</div>`;})()}`;
-  if(v.lat!=null) map.setView([v.lat,v.lon],9);
+function pass(r){
+  const q=document.getElementById('q').value.trim();
+  if(q&&!r.name.includes(q))return false;
+  if(FIL==='ALL')return true;
+  if(FIL==='PRE')return r.status!=='ok';
+  return r.traffic===FIL;
 }
-function advCopy(v){
-  const today=new Date(), bd=new Date(v.bloom_date+'T00:00:00');
-  const dd=Math.round((bd-today)/86400000);
-  if(dd>3){ // 개화 전
-    return {t:`개화 D-${dd} · 준비기`,
-      m:'정리채밀로 사양꿀을 분리하고, 채밀군을 강군 위주로 편성하세요. 저장 공간(계상) 확보를 미리 점검하면 유밀기 대응이 빨라집니다.'};
-  }
-  if(dd>=-12){ // 유밀기
-    if(v.traffic==='RED') return {t:'유밀기 · 여건 주의',
-      m:'유밀 부진이 우려됩니다. 무리한 채밀보다 봉군 유지에 중점을 두고, 다음 밀원지 이동 계획을 앞당겨 검토하세요.'};
-    if(v.traffic==='YELLOW') return {t:'유밀기 · 여건 보통',
-      m:'유밀 변동 가능성이 있습니다. 단기 예보를 확인하며 채밀·이동 시기를 조정하고, 강군 위주로 채밀군을 운용하세요.'};
-    if(v.grade==='A'||v.grade==='B') return {t:'유밀기 · 여건 좋음',
-      m:'유밀 여건이 양호합니다. 저장 공간을 확보하고 개화 성기에 채밀을 집중하세요.'};
-    if(v.grade==='C') return {t:'유밀기 · 수분 유의',
-      m:'유밀은 기대되나 꿀 수분이 높아질 수 있습니다. 봉개(숙성) 비율을 확인하고 채밀 간격에 여유를 두세요.'};
-    return {t:'유밀기 · 고수분 위험',
-      m:'생산 여건은 좋으나 고수분 위험이 있습니다. 봉개 비율을 확인해 숙성 소비 위주로 채밀하고, 채밀 후 농축·저장 관리에 유의하세요.'};
-  }
-  return {t:'시즌 종료 · 결과 요약', // 유밀기 이후
-    m:`올해 이 지점의 아까시 유밀기는 종료되었습니다. 위 지수·등급은 ${today.getFullYear()}년 시즌 종합 진단입니다. 다음 시즌 예보는 봄철에 자동 갱신됩니다.`};
-}
-function locateMe(){
-  if(!navigator.geolocation){alert('위치 서비스를 사용할 수 없습니다.');return;}
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const{latitude:la,longitude:lo}=pos.coords;
-    let best=null,bd=1e9;
-    for(const[n,v]of Object.entries(POINTS)){
-      if(v.lat==null)continue;
-      const d=(v.lat-la)**2+((v.lon-lo)*0.8)**2;
-      if(d<bd){bd=d;best=n;}
-    }
-    if(best)showDiag(best);
-  },()=>alert('위치를 가져오지 못했습니다. 지도에서 지점을 선택하세요.'));
-}
-function initSlots(){
-  const s=document.getElementById('slotSel');
-  Object.keys(POINTS).sort((a,b)=>a.localeCompare(b,'ko')).forEach(n=>{
-    const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o);});
-}
-let SLOTS=[];
-function addSlot(name){
-  const n=name||document.getElementById('slotSel').value;
-  if(!n||SLOTS.includes(n)||SLOTS.length>=4)return;
-  SLOTS.push(n);renderSlots();
-}
-function rmSlot(n){SLOTS=SLOTS.filter(x=>x!==n);renderSlots();}
-function renderSlots(){
-  const el=document.getElementById('slotList');
-  el.innerHTML=SLOTS.map(n=>{
-    const v=POINTS[n],bd=new Date(v.bloom_date+'T00:00:00');
-    return `<div class="scard"><div class="dot" style="background:${TCOL[v.traffic]}"></div>
-      <div class="n">${n.replace('★','')}</div>
-      <div class="d">개화 ${bd.getMonth()+1}/${bd.getDate()} · 지수 ${idxOf(v).toFixed(2)}</div>
-      <div class="g" style="color:${GCOL[v.grade]}">${v.grade}</div>
-      <button class="x" onclick="rmSlot('${n}')">✕</button></div>`;}).join('')
-    ||'<div style="font-size:13px;color:var(--muted);font-family:Gowun Dodum">이동 후보 지점을 추가해 개화·여건을 나란히 비교하세요</div>';
-  const u=new URL(location);SLOTS.length?u.searchParams.set('p',SLOTS.join(',')):u.searchParams.delete('p');
-  history.replaceState(null,'',u);
-}
-function fromURL(){
-  const p=new URL(location).searchParams.get('p');
-  if(p)p.split(',').forEach(n=>POINTS[n]&&addSlot(n));
+function render(){
+  const rows=ROWS.filter(pass).sort((a,b)=>{
+    const k=SORT.k,x=a[k]??-1,y=b[k]??-1;
+    return (x>y?1:x<y?-1:0)*SORT.dir*(k==='name'?-1:1);});
+  document.getElementById('tb').innerHTML=rows.map(r=>r.status==='ok'?`
+    <tr><td>${r.name}</td><td>${r.bloom.slice(5).replace('-','/')}</td>
+    <td><b>${r.idx.toFixed(2)}</b></td>
+    <td class="gb" style="color:${GCOL[r.grade]}">${r.grade}</td>
+    <td><span class="dot" style="background:${TCOL[r.traffic]}"></span>${TLAB[r.traffic]}</td>
+    <td>${r.obs_days_used}</td></tr>`:`
+    <tr style="color:var(--muted)"><td>${r.name}</td><td>—</td><td>—</td><td>—</td>
+    <td>개화전</td><td>${r.obs_days_used}</td></tr>`).join('');
+  layer.clearLayers();
+  rows.forEach(r=>{if(r.lat==null)return;
+    L.circleMarker([r.lat,r.lon],{radius:6,color:'#fff',weight:1.2,
+      fillColor:r.status==='ok'?TCOL[r.traffic]:'#AAA',fillOpacity:.9})
+      .bindTooltip(`${r.name}${r.idx!=null?' '+r.idx.toFixed(2):''}`).addTo(layer);});
 }
 load();
 </script>
