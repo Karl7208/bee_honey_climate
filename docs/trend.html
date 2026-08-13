@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>아까시 37년 경향</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap');
+:root{--honey:#E8A317;--honey-deep:#C77B0E;--comb:#F6E6B4;--ink:#2B2118;--paper:#FBF6EA;--card:#FFF;--good:#3C8A5A;--warn:#D98324;--bad:#C0392B;--line:#E5D9BC;--muted:#8A7A5C}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--paper);color:var(--ink);line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding:0 16px 60px}
+header{padding:24px 0 14px;border-bottom:3px solid var(--ink);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+header h1{font-family:'Black Han Sans';font-size:clamp(21px,4vw,30px)}
+header h1 em{font-style:normal;color:var(--honey-deep)}
+header a{font-size:12.5px;color:var(--muted);text-decoration:none;font-weight:700}
+.ctl{display:flex;gap:8px;margin-left:auto;align-items:center}
+.ctl select{padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:13px;background:#fff;font-weight:700;max-width:150px}
+.lang{border:1px solid var(--ink);border-radius:9px;overflow:hidden;display:flex}
+.lang button{border:none;background:#fff;padding:7px 11px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.lang button.on{background:var(--ink);color:var(--paper)}
+.head{background:var(--comb);border-radius:14px;padding:18px 20px;margin-top:18px}
+.head .big{font-family:'Black Han Sans';font-size:clamp(19px,3.4vw,26px);line-height:1.35}
+.head .sub{font-size:13px;color:var(--honey-deep);font-weight:700;margin-top:4px;font-family:'Gowun Dodum'}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-top:16px;padding:16px 18px}
+.panel h2{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px}
+svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:8px;flex-wrap:wrap}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px}
+footer{margin-top:28px;padding-top:12px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted);font-family:'Gowun Dodum'}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <a href="index.html" id="back"></a>
+  <h1 id="ttl"></h1>
+  <div class="ctl">
+    <select id="stnSel"></select>
+    <div class="lang">
+      <button id="btnKo" onclick="setLang('ko')">한국어</button>
+      <button id="btnEn" onclick="setLang('en')">EN</button>
+    </div>
+  </div>
+</header>
+
+<div class="head">
+  <div class="big" id="headline">…</div>
+  <div class="sub" id="headsub"></div>
+</div>
+
+<div class="panel">
+  <h2 id="h1t"></h2>
+  <div id="chartBloom"></div>
+</div>
+
+<div class="panel">
+  <h2 id="h2t"></h2>
+  <div id="chartIdx"></div>
+  <div class="legend" id="lg2"></div>
+</div>
+
+<footer id="foot"></footer>
+</div>
+
+<script>
+const REPO='https://raw.githubusercontent.com/Karl7208/bee_honey_climate/main/docs';
+const S={
+ko:{back:'← 전국 관제',ttl:'아까시 <em>37년 경향</em> (1990–2026)',
+ h1:'개화일 변화 (연중 일수 DOY)',h2:'생산 여건 지수 (0–1) · 색 = 신호',
+ head:(n,d,y0,y1)=>`${n}: 아까시 개화가 ${y0}년대보다 <span style="color:var(--honey-deep)">약 ${Math.abs(d).toFixed(0)}일 ${d>0?'빨라':'늦어'}</span>졌습니다`,
+ hsub:'1990년대 평균 대비 최근 10년 평균 · 관측 기상 재구성',
+ lgG:'좋음',lgY:'보통',lgR:'주의',trend:'추세선',
+ foot:'기상청 ASOS 관측 기반 후향 재구성 · HHWI 지수 (게재 모델) · 연구 시제품'},
+en:{back:'← Dashboard',ttl:'Black Locust <em>37-Year Trends</em> (1990–2026)',
+ h1:'Bloom date shift (day of year)',h2:'Production index (0–1) · color = signal',
+ head:(n,d,y0,y1)=>`${n}: black locust now blooms <span style="color:var(--honey-deep)">≈ ${Math.abs(d).toFixed(0)} days ${d>0?'earlier':'later'}</span> than in the 1990s`,
+ hsub:'Recent 10-yr mean vs 1990s mean · reconstructed from observed weather',
+ lgG:'Good',lgY:'Fair',lgR:'Alert',trend:'trend',
+ foot:'Retrospective reconstruction from KMA ASOS observations · HHWI index (published model) · research prototype'}};
+const TCOL={GREEN:'#3C8A5A',YELLOW:'#D98324',RED:'#C0392B'};
+let LANG='ko',T=null,STN=null;
+
+function t(k){return S[LANG][k];}
+async function getJSON(rel){
+  try{let r=await fetch(rel,{cache:'no-store'});if(r.ok)return await r.json();}catch(e){}
+  return await (await fetch(REPO+'/'+rel,{cache:'no-store'})).json();
+}
+function setLang(l){LANG=l;const u=new URL(location);u.searchParams.set('lang',l);
+  history.replaceState(null,'',u);paint();}
+function doyToDate(doy){const d=new Date(2026,0,doy);
+  return LANG==='ko'?`${d.getMonth()+1}/${d.getDate()}`
+                    :d.toLocaleDateString('en',{month:'short',day:'numeric'});}
+function linreg(xs,ys){const n=xs.length,mx=xs.reduce((a,b)=>a+b)/n,my=ys.reduce((a,b)=>a+b)/n;
+  let sxy=0,sxx=0;for(let i=0;i<n;i++){sxy+=(xs[i]-mx)*(ys[i]-my);sxx+=(xs[i]-mx)**2;}
+  const b=sxy/sxx;return{a:my-b*mx,b};}
+function paint(){
+  document.getElementById('back').textContent=t('back');
+  document.getElementById('back').href='index.html'+(LANG==='en'?'?lang=en':'');
+  document.getElementById('ttl').innerHTML=t('ttl');
+  document.getElementById('h1t').textContent=t('h1');
+  document.getElementById('h2t').textContent=t('h2');
+  document.getElementById('foot').textContent=t('foot');
+  document.getElementById('btnKo').classList.toggle('on',LANG==='ko');
+  document.getElementById('btnEn').classList.toggle('on',LANG==='en');
+  document.getElementById('lg2').innerHTML=
+    [['GREEN','lgG'],['YELLOW','lgY'],['RED','lgR']]
+    .map(([c,k])=>`<span><i style="background:${TCOL[c]}"></i>${t(k)}</span>`).join('');
+  if(!T||!STN)return;
+  const st=T.stations[STN], ser=st.series;
+  const years=Object.keys(ser).map(Number).sort((a,b)=>a-b);
+  const doys=years.map(y=>ser[y].doy), idxs=years.map(y=>ser[y].idx);
+  // 헤드라인: 1990s vs 최근10년
+  const d90=years.filter(y=>y<2000).map(y=>ser[y].doy);
+  const d10=years.filter(y=>y>=2017).map(y=>ser[y].doy);
+  const shift=d90.reduce((a,b)=>a+b,0)/d90.length - d10.reduce((a,b)=>a+b,0)/d10.length;
+  document.getElementById('headline').innerHTML=S[LANG].head(st.name,shift);
+  document.getElementById('headsub').textContent=t('hsub');
+  drawBloom(years,doys); drawIdx(years,idxs,ser);
+}
+function drawBloom(years,doys){
+  const W=900,H=260,L=46,R=12,Tp=14,B=28;
+  const x=y=>L+(y-years[0])/(years[years.length-1]-years[0])*(W-L-R);
+  const lo=Math.min(...doys)-3, hi=Math.max(...doys)+3;
+  const yv=v=>Tp+(hi-v)/(hi-lo)*(H-Tp-B);
+  const {a,b}=linreg(years,doys);
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  for(let g=Math.ceil(lo/5)*5;g<=hi;g+=5)
+    s+=`<line x1="${L}" y1="${yv(g)}" x2="${W-R}" y2="${yv(g)}" stroke="#EEE4C8"/>
+        <text x="${L-6}" y="${yv(g)+4}" font-size="10" fill="#8A7A5C" text-anchor="end">${doyToDate(g)}</text>`;
+  s+=`<line x1="${x(years[0])}" y1="${yv(a+b*years[0])}" x2="${x(years[years.length-1])}" y2="${yv(a+b*years[years.length-1])}" stroke="#C77B0E" stroke-width="2" stroke-dasharray="6 4"/>`;
+  s+=`<polyline fill="none" stroke="#2B2118" stroke-width="1.6" points="${years.map((yy,i)=>x(yy)+','+yv(doys[i])).join(' ')}"/>`;
+  years.forEach((yy,i)=>{s+=`<circle cx="${x(yy)}" cy="${yv(doys[i])}" r="3.4" fill="#E8A317" stroke="#fff"/>`;});
+  years.forEach(yy=>{if(yy%5===0)s+=`<text x="${x(yy)}" y="${H-8}" font-size="10" fill="#8A7A5C" text-anchor="middle">${yy}</text>`;});
+  s+=`<text x="${W-R}" y="${Tp+10}" font-size="11" fill="#C77B0E" text-anchor="end" font-weight="700">${t('trend')} ${(b*10).toFixed(1)} d/10yr</text></svg>`;
+  document.getElementById('chartBloom').innerHTML=s;
+}
+function drawIdx(years,idxs,ser){
+  const W=900,H=220,L=36,R=12,Tp=10,B=28;
+  const bw=(W-L-R)/years.length-3;
+  const x=i=>L+i*((W-L-R)/years.length);
+  const yv=v=>Tp+(1-v)*(H-Tp-B);
+  let s=`<svg viewBox="0 0 ${W} ${H}">`;
+  [0,0.25,0.5,0.75,1].forEach(g=>{
+    s+=`<line x1="${L}" y1="${yv(g)}" x2="${W-R}" y2="${yv(g)}" stroke="#EEE4C8"/>
+        <text x="${L-6}" y="${yv(g)+4}" font-size="10" fill="#8A7A5C" text-anchor="end">${g}</text>`;});
+  years.forEach((yy,i)=>{
+    const v=idxs[i], c=TCOL[ser[yy].traffic]||'#999';
+    s+=`<rect x="${x(i)}" y="${yv(v)}" width="${bw}" height="${H-B-yv(v)}" rx="2" fill="${c}" opacity=".88"><title>${yy}: ${v}</title></rect>`;
+    if(yy%5===0)s+=`<text x="${x(i)+bw/2}" y="${H-8}" font-size="10" fill="#8A7A5C" text-anchor="middle">${yy}</text>`;});
+  s+='</svg>';
+  document.getElementById('chartIdx').innerHTML=s;
+}
+(async function boot(){
+  const u=new URL(location);
+  LANG=u.searchParams.get('lang')==='en'?'en':'ko';
+  T=await getJSON('archive/trend_honey.json');
+  const sel=document.getElementById('stnSel');
+  const names=Object.entries(T.stations).sort((a,b)=>a[1].name.localeCompare(b[1].name,'ko'));
+  sel.innerHTML=names.map(([id,v])=>`<option value="${id}">${v.name}</option>`).join('');
+  STN=u.searchParams.get('stn')||'146';
+  if(!T.stations[STN])STN=names[0][0];
+  sel.value=STN;
+  sel.onchange=()=>{STN=sel.value;const uu=new URL(location);
+    uu.searchParams.set('stn',STN);history.replaceState(null,'',uu);paint();};
+  paint();
+})();
+</script>
+</body>
+</html>

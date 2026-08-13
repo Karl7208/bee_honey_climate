@@ -11,10 +11,16 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'IBM Plex Sans KR',sans-serif;background:var(--paper);color:var(--ink);line-height:1.5}
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px 60px}
-header{padding:24px 0 14px;border-bottom:3px solid var(--ink);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-header h1{font-family:'Black Han Sans';font-size:clamp(22px,4vw,32px)}
+header{padding:24px 0 14px;border-bottom:3px solid var(--ink);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-family:'Black Han Sans';font-size:clamp(21px,3.6vw,30px)}
 header h1 em{font-style:normal;color:var(--honey-deep)}
-header .meta{font-size:12px;color:var(--muted)}
+header .meta{font-size:12px;color:var(--muted);flex-basis:100%}
+.ctl{display:flex;gap:8px;margin-left:auto;align-items:center}
+.ctl select{padding:7px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:13px;background:#fff;font-weight:700}
+.lang{border:1px solid var(--ink);border-radius:9px;overflow:hidden;display:flex}
+.lang button{border:none;background:#fff;padding:7px 11px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+.lang button.on{background:var(--ink);color:var(--paper)}
+.gofarm{font-size:13px;font-weight:700;color:var(--paper);background:var(--honey-deep);padding:8px 14px;border-radius:9px;text-decoration:none}
 .sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-top:16px}
 .sbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
 .sbox .lab{font-size:11px;color:var(--muted);font-weight:700}
@@ -30,7 +36,6 @@ header .meta{font-size:12px;color:var(--muted)}
 .filters input{flex:1;min-width:120px;padding:6px 12px;border:1px solid var(--line);border-radius:16px;font-family:inherit;font-size:12.5px}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{position:sticky;top:0;background:var(--comb);text-align:left;padding:8px 10px;cursor:pointer;font-size:12px;white-space:nowrap}
-th:hover{background:#EFDCA0}
 td{padding:7px 10px;border-top:1px solid var(--line);white-space:nowrap}
 tr:hover td{background:var(--paper)}
 .tbwrap{max-height:430px;overflow:auto;margin-top:8px}
@@ -42,52 +47,107 @@ footer{margin-top:28px;padding-top:12px;border-top:1px solid var(--line);font-si
 <body>
 <div class="wrap">
 <header>
-  <h1>아까시 작황 <em>전국 관제</em></h1>
-  <div class="meta" id="meta">불러오는 중…</div>
-  <a href="farmer.html" style="margin-left:auto;font-size:13px;font-weight:700;color:var(--paper);background:var(--honey-deep);padding:8px 14px;border-radius:9px;text-decoration:none">🐝 농가용 진단 화면 →</a>
+  <h1 id="ttl"></h1>
+  <div class="ctl">
+    <select id="yearSel"></select>
+    <div class="lang">
+      <button id="btnKo" onclick="setLang('ko')">한국어</button>
+      <button id="btnEn" onclick="setLang('en')">EN</button>
+    </div>
+    <a class="gofarm" id="goFarm" href="farmer.html"></a>
+  </div>
+  <div class="meta" id="meta"></div>
 </header>
 
 <div class="sum" id="sum"></div>
 
 <div class="cols">
-  <div class="panel"><h2>전국 분포</h2><div id="map"></div></div>
+  <div class="panel"><h2 id="hMap"></h2><div id="map"></div></div>
   <div class="panel">
-    <h2>지점 목록 <span style="font-weight:400">(열 제목 클릭 = 정렬)</span></h2>
+    <h2 id="hTbl"></h2>
     <div class="filters" id="filters">
-      <button class="on" data-f="ALL">전체</button>
-      <button data-f="GREEN">좋음</button>
-      <button data-f="YELLOW">보통</button>
-      <button data-f="RED">주의</button>
-      <button data-f="PRE">개화전/미달</button>
-      <input id="q" placeholder="지점 검색">
+      <button class="on" data-f="ALL"></button>
+      <button data-f="GREEN"></button>
+      <button data-f="YELLOW"></button>
+      <button data-f="RED"></button>
+      <button data-f="PRE"></button>
+      <input id="q">
     </div>
     <div class="tbwrap"><table>
       <thead><tr>
-        <th data-k="name">지점</th><th data-k="bloom_doy">개화일</th>
-        <th data-k="idx">여건지수</th><th data-k="hmwi">수분등급</th>
-        <th data-k="traffic">신호</th><th data-k="obs_days_used">관측일</th>
+        <th data-k="name"></th><th data-k="bloom_doy"></th>
+        <th data-k="idx"></th><th data-k="hmwi"></th>
+        <th data-k="traffic"></th><th data-k="obs_days_used"></th>
       </tr></thead>
       <tbody id="tb"></tbody>
     </table></div>
   </div>
 </div>
 
-<footer>연구 시제품 · 기상자료: 기상청 API허브(ASOS) · 여건지수 = HHWI/100 (0~1 상대지표) · 개화전/미달 지점은 적산온도 미도달</footer>
+<footer id="foot"></footer>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const RAW='https://raw.githubusercontent.com/Karl7208/bee_honey_climate/main/docs/data.json';
+const REPO='https://raw.githubusercontent.com/Karl7208/bee_honey_climate/main/docs';
+const Y0=1990, Y1=2026;
+const S={
+ko:{ttl:'아까시 작황 <em>전국 관제</em>',farm:'🐝 농가용 진단 →',hMap:'전국 분포',
+ hTbl:'지점 목록 (열 제목 클릭 = 정렬)',fAll:'전체',fG:'좋음',fY:'보통',fR:'주의',
+ fP:'개화전/미달',q:'지점 검색',thName:'지점',thBloom:'개화일',thIdx:'여건지수',
+ thGr:'수분등급',thSig:'신호',thObs:'관측일',live:'실시간(올해)',pre:'개화전',
+ sN:'진단 지점',sMean:'평균 여건지수',sG:'좋음',sYR:'보통·주의',sDE:'수분 D·E 지점',
+ meta:(y,n,g)=>`${y} · ASOS ${n}지점 · 갱신 ${g}`,
+ tl:{GREEN:'좋음',YELLOW:'보통',RED:'주의'},fail:'데이터 로드 실패',
+ foot:'연구 시제품 · 기상자료: 기상청 API허브(ASOS) · 여건지수 = HHWI/100 (0~1 상대지표) · 개화전/미달 지점은 적산온도 미도달'},
+en:{ttl:'Black Locust Honey <em>National Dashboard</em>',farm:'🐝 Beekeeper view →',
+ hMap:'National map',hTbl:'Stations (click header to sort)',fAll:'All',fG:'Good',
+ fY:'Fair',fR:'Alert',fP:'Pre-bloom',q:'Search station',thName:'Station',
+ thBloom:'Bloom',thIdx:'Index',thGr:'Moisture',thSig:'Signal',thObs:'Obs days',
+ live:'Live (this year)',pre:'Pre-bloom',
+ sN:'Stations assessed',sMean:'Mean index',sG:'Good',sYR:'Fair · Alert',sDE:'Grade D·E stations',
+ meta:(y,n,g)=>`${y} · ${n} ASOS stations · updated ${g}`,
+ tl:{GREEN:'Good',YELLOW:'Fair',RED:'Alert'},fail:'Failed to load data',
+ foot:'Research prototype · Weather: KMA API Hub (ASOS) · Index = HHWI/100 (relative 0–1) · Pre-bloom: GDD threshold not reached'}};
 const TCOL={GREEN:'#3C8A5A',YELLOW:'#D98324',RED:'#C0392B'};
-const TLAB={GREEN:'좋음',YELLOW:'보통',RED:'주의'};
 const GCOL={A:'#3C8A5A',B:'#6FB07F',C:'#E8A317',D:'#D98324',E:'#C0392B'};
-let ROWS=[],FIL='ALL',SORT={k:'idx',dir:-1},map,layer;
+let LANG='ko',YEARSEL='live',ROWS=[],FIL='ALL',SORT={k:'idx',dir:-1},map,layer,META={};
 
-async function load(){
+function t(k){return S[LANG][k];}
+function setLang(l){LANG=l;const u=new URL(location);u.searchParams.set('lang',l);
+  history.replaceState(null,'',u);paintStatic();render();summary();paintMeta();}
+function paintStatic(){
+  document.getElementById('ttl').innerHTML=t('ttl');
+  document.getElementById('goFarm').textContent=t('farm');
+  document.getElementById('goFarm').href='farmer.html'+(LANG==='en'?'?lang=en':'');
+  document.getElementById('hMap').textContent=t('hMap');
+  document.getElementById('hTbl').textContent=t('hTbl');
+  const fb=document.querySelectorAll('#filters button');
+  ['fAll','fG','fY','fR','fP'].forEach((k,i)=>fb[i].textContent=t(k));
+  document.getElementById('q').placeholder=t('q');
+  const th=document.querySelectorAll('th');
+  ['thName','thBloom','thIdx','thGr','thSig','thObs'].forEach((k,i)=>th[i].textContent=t(k));
+  document.getElementById('foot').textContent=t('foot');
+  document.getElementById('btnKo').classList.toggle('on',LANG==='ko');
+  document.getElementById('btnEn').classList.toggle('on',LANG==='en');
+  const ys=document.getElementById('yearSel');
+  [...ys.options].forEach(o=>{if(o.value==='live')o.textContent=t('live');});
+}
+function paintMeta(){
+  document.getElementById('meta').textContent=
+    S[LANG].meta(META.year??'',ROWS.length,META.gen??'');
+}
+async function getJSON(rel){
+  try{let r=await fetch(rel,{cache:'no-store'});if(r.ok)return await r.json();}catch(e){}
+  return await (await fetch(REPO+'/'+rel,{cache:'no-store'})).json();
+}
+async function loadYear(sel){
+  YEARSEL=sel;ROWS=[];
   let d;
-  try{let r=await fetch('data.json',{cache:'no-store'});if(!r.ok)throw 0;d=await r.json();}
-  catch(e){try{d=await(await fetch(RAW,{cache:'no-store'})).json();}
-    catch(e2){document.getElementById('meta').textContent='데이터 로드 실패';return;}}
+  try{
+    d = sel==='live' ? await getJSON('data.json')
+                     : await getJSON(`archive/data_${sel}.json`);
+  }catch(e){document.getElementById('meta').textContent=t('fail');return;}
   for(const[stn,v]of Object.entries(d.stations||{})){
     ROWS.push({stn,name:v.name,lat:v.lat,lon:v.lon,status:v.status,
       bloom:v.bloom_date||null,bloom_doy:v.bloom_doy||999,
@@ -95,27 +155,30 @@ async function load(){
       grade:v.grade||'-',traffic:v.traffic||'PRE',
       obs_days_used:v.obs_days_used??0});
   }
-  document.getElementById('meta').textContent=
-    `${d.year}년 · ASOS ${ROWS.length}지점 · 갱신 ${d.generated.slice(0,16).replace('T',' ')}`;
-  summary();initMap();render();
-  document.querySelectorAll('#filters button').forEach(b=>b.onclick=()=>{
-    document.querySelectorAll('#filters button').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');FIL=b.dataset.f;render();});
-  document.getElementById('q').oninput=render;
-  document.querySelectorAll('th').forEach(th=>th.onclick=()=>{
-    const k=th.dataset.k;SORT.dir=SORT.k===k?-SORT.dir:-1;SORT.k=k;render();});
+  META={year:d.year,gen:(d.generated||'').slice(0,16).replace('T',' ')||String(d.year)};
+  summary();render();paintMeta();
+}
+function initYearSel(){
+  const ys=document.getElementById('yearSel');
+  const opts=[`<option value="live">${t('live')}</option>`];
+  for(let y=Y1;y>=Y0;y--)opts.push(`<option value="${y}">${y}</option>`);
+  ys.innerHTML=opts.join('');
+  ys.onchange=()=>{const u=new URL(location);
+    ys.value==='live'?u.searchParams.delete('y'):u.searchParams.set('y',ys.value);
+    history.replaceState(null,'',u);loadYear(ys.value);};
 }
 function summary(){
   const ok=ROWS.filter(r=>r.status==='ok');
-  const c=t=>ok.filter(r=>r.traffic===t).length;
+  if(!ok.length){document.getElementById('sum').innerHTML='';return;}
+  const c=x=>ok.filter(r=>r.traffic===x).length;
   const mean=ok.reduce((s,r)=>s+r.idx,0)/ok.length;
   const eg=ok.filter(r=>['D','E'].includes(r.grade)).length;
   document.getElementById('sum').innerHTML=[
-    ['진단 지점',`${ok.length}<span style="font-size:14px;color:var(--muted)">/${ROWS.length}</span>`],
-    ['평균 여건지수',mean.toFixed(2)],
-    ['좋음',`<span style="color:${TCOL.GREEN}">${c('GREEN')}</span>`],
-    ['보통·주의',`<span style="color:${TCOL.YELLOW}">${c('YELLOW')}</span> · <span style="color:${TCOL.RED}">${c('RED')}</span>`],
-    ['수분 D·E 지점',`<span style="color:${TCOL.RED}">${eg}</span>`],
+    [t('sN'),`${ok.length}<span style="font-size:14px;color:var(--muted)">/${ROWS.length}</span>`],
+    [t('sMean'),mean.toFixed(2)],
+    [t('sG'),`<span style="color:${TCOL.GREEN}">${c('GREEN')}</span>`],
+    [t('sYR'),`<span style="color:${TCOL.YELLOW}">${c('YELLOW')}</span> · <span style="color:${TCOL.RED}">${c('RED')}</span>`],
+    [t('sDE'),`<span style="color:${TCOL.RED}">${eg}</span>`],
   ].map(([l,v])=>`<div class="sbox"><div class="lab">${l}</div><div class="v">${v}</div></div>`).join('');
 }
 function initMap(){
@@ -139,17 +202,31 @@ function render(){
     <tr><td>${r.name}</td><td>${r.bloom.slice(5).replace('-','/')}</td>
     <td><b>${r.idx.toFixed(2)}</b></td>
     <td class="gb" style="color:${GCOL[r.grade]}">${r.grade}</td>
-    <td><span class="dot" style="background:${TCOL[r.traffic]}"></span>${TLAB[r.traffic]}</td>
+    <td><span class="dot" style="background:${TCOL[r.traffic]}"></span>${S[LANG].tl[r.traffic]}</td>
     <td>${r.obs_days_used}</td></tr>`:`
     <tr style="color:var(--muted)"><td>${r.name}</td><td>—</td><td>—</td><td>—</td>
-    <td>개화전</td><td>${r.obs_days_used}</td></tr>`).join('');
+    <td>${t('pre')}</td><td>${r.obs_days_used}</td></tr>`).join('');
   layer.clearLayers();
   rows.forEach(r=>{if(r.lat==null)return;
     L.circleMarker([r.lat,r.lon],{radius:6,color:'#fff',weight:1.2,
       fillColor:r.status==='ok'?TCOL[r.traffic]:'#AAA',fillOpacity:.9})
       .bindTooltip(`${r.name}${r.idx!=null?' '+r.idx.toFixed(2):''}`).addTo(layer);});
 }
-load();
+(function boot(){
+  const u=new URL(location);
+  LANG=u.searchParams.get('lang')==='en'?'en':'ko';
+  initYearSel();
+  const y=u.searchParams.get('y');
+  if(y){document.getElementById('yearSel').value=y;YEARSEL=y;}
+  paintStatic();initMap();
+  document.querySelectorAll('#filters button').forEach(b=>b.onclick=()=>{
+    document.querySelectorAll('#filters button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');FIL=b.dataset.f;render();});
+  document.getElementById('q').oninput=render;
+  document.querySelectorAll('th').forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k;SORT.dir=SORT.k===k?-SORT.dir:-1;SORT.k=k;render();});
+  loadYear(YEARSEL);
+})();
 </script>
 </body>
 </html>
